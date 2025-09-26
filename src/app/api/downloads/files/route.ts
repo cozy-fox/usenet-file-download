@@ -58,22 +58,27 @@ export async function GET(req: NextRequest) {
       // Skip if it's a directory
       if (stats.isDirectory()) continue
       
-      // Get file type
+      // Get file type (can be null for unsupported files)
       const fileType = getFileType(item)
-      
-      // Skip if file type is not supported or excluded
-      if (!fileType) continue
       
       files.push({
         name: item,
         path: itemPath,
         size: stats.size,
-        type: fileType
+        type: fileType, // Can be null for unsupported files
+        supported: fileType !== null // Add flag to indicate if file is supported
       })
     }
     
-    // Sort by name
-    files.sort((a, b) => a.name.localeCompare(b.name))
+    // Sort by supported status first, then by name
+    files.sort((a, b) => {
+      // Supported files first
+      if (a.supported && !b.supported) return -1
+      if (!a.supported && b.supported) return 1
+      
+      // If both have same support status, sort by name
+      return a.name.localeCompare(b.name)
+    })
     
     return NextResponse.json({
       success: true,

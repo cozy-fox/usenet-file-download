@@ -12,7 +12,8 @@ interface FileItem {
   name: string
   path: string
   size: number
-  type: 'video' | 'audio' | 'image' | 'book' | 'software'
+  type: 'video' | 'audio' | 'image' | 'book' | 'software' | null
+  supported: boolean
 }
 
 export default function DownloadsPage() {
@@ -73,13 +74,26 @@ export default function DownloadsPage() {
     // Create a URL for the file
     const fileUrl = `/api/downloads/file?path=${encodeURIComponent(file.path)}`
     
-    // For videos, audio, images, and books, open in viewer
-    if (['video', 'audio', 'image', 'book'].includes(file.type)) {
+    // For supported videos, audio, images, and books, open in viewer
+    if (file.supported && file.type && ['video', 'audio', 'image', 'book'].includes(file.type)) {
       window.open(`/viewer?type=${file.type}&url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(file.name)}`, '_blank')
     } else {
-      // For software and other types, open directly
+      // For software and unsupported files, open directly
       window.open(fileUrl, '_blank')
     }
+  }
+
+  const handleDownloadFile = (file: FileItem) => {
+    // Create a URL for the file
+    const fileUrl = `/api/downloads/file?path=${encodeURIComponent(file.path)}`
+    
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = file.name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const formatFileSize = (bytes: number) => {
@@ -95,7 +109,7 @@ export default function DownloadsPage() {
     return `${size.toFixed(2)} ${units[unitIndex]}`
   }
 
-  const getFileTypeIcon = (type: string) => {
+  const getFileTypeIcon = (type: string | null) => {
     switch (type) {
       case 'video': return '🎬'
       case 'audio': return '🎵'
@@ -202,29 +216,45 @@ export default function DownloadsPage() {
                   {files.map((file, index) => (
                     <div
                       key={index}
-                      onClick={() => handleFileClick(file)}
-                      className="flex items-center justify-between p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
+                      className={`flex items-center justify-between p-3 border rounded-md hover:bg-gray-50 ${
+                        file.supported ? 'bg-green-50 border-green-200' : ''
+                      }`}
                     >
-                      <div className="flex items-center space-x-3">
+                      <div 
+                        onClick={() => handleFileClick(file)}
+                        className="flex items-center space-x-3 flex-1 cursor-pointer"
+                      >
                         <span className="text-xl">{getFileTypeIcon(file.type)}</span>
                         <div>
                           <div className="font-medium text-gray-900">{file.name}</div>
                           <div className="text-sm text-gray-500">
-                            {formatFileSize(file.size)} • {file.type}
+                            {formatFileSize(file.size)} • {file.type || 'unsupported'}
+                            {file.supported && <span className="ml-2 text-green-600 text-xs">✓ supported</span>}
                           </div>
                         </div>
                       </div>
-                      <div className="text-gray-400">
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDownloadFile(file)
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          Download
+                        </button>
+                        <div className="text-gray-400">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <div className="text-gray-500">No supported files found</div>
+                  <div className="text-gray-500">No files found</div>
                 </div>
               )}
             </div>
