@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+      - SABNZBD_BASE=/config
+    volumes:
+      - ./sabnzbd-config:/config
+      - ./downloads:/downloads
+      - ./nzb-files:/nzb-files
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - usenet-network
+
+networks:
+  usenet-network:
+    driver: bridge
