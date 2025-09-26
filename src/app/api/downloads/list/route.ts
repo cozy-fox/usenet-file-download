@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readdir, stat } from 'fs/promises'
-import { join } from 'path'
+import { join, resolve } from 'path'
 
 export const dynamic = 'force-dynamic'
 
-const DOWNLOADS_PATH = '/home/cozyfox/Desktop/usenet/sabnzbd-config/Downloads/complete'
+// Use environment variable or fallback to relative path
+const DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || resolve(process.cwd(), 'sabnzbd-config/Downloads/complete')
 
 export async function GET(req: NextRequest) {
   try {
