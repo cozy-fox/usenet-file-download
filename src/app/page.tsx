@@ -58,7 +58,6 @@ export default function HomePage() {
   }
 
   const handleDownload = async (result: SearchResult) => {
-    console.log('Downloading:', result)
     try {
       const response = await fetch('/api/downloads', {
         method: 'POST',
@@ -74,7 +73,7 @@ export default function HomePage() {
       const data = await response.json()
       if (data.success) {
         // Redirect to downloads page with success message and active tab
-        router.push('/downloads?message=download_started&tab=active')
+        router.push('/downloads?tab=active')
       } else {
         setError(`Download failed: ${data.error}`)
       }

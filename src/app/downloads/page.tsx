@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 interface DownloadItem {
   name: string
@@ -80,6 +81,7 @@ interface HistoryDownload {
 }
 
 export default function DownloadsPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [historyDownloads, setHistoryDownloads] = useState<HistoryDownload[]>([])
@@ -94,17 +96,17 @@ export default function DownloadsPage() {
   const [filesLoading, setFilesLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'queue' | 'completed' | 'history'>('completed')
-  const [hadActiveDownloads, setHadActiveDownloads] = useState(false)
+  const hadActiveDownloads = useRef(false)
 
   useEffect(() => {
     fetchDownloads()
     fetchHistoryDownloads()
     fetchQueue()
-    
+
     // Check for URL parameters
     const message = searchParams.get('message')
     const tab = searchParams.get('tab')
-    
+
     // Set tab based on URL parameter
     if (tab === 'queue' || tab === 'active') {
       setActiveTab('queue')
@@ -113,16 +115,7 @@ export default function DownloadsPage() {
     } else if (tab === 'history') {
       setActiveTab('history')
     }
-    
-    // Check for success message from URL params
-    if (message === 'download_started') {
-      setSuccessMessage('Download started successfully! You can monitor its progress below.')
-      setActiveTab('queue') // Switch to queue tab to show the new download
-      setHadActiveDownloads(true) // Set flag that we have active downloads
-      // Clear the message after 5 seconds
-      setTimeout(() => setSuccessMessage(''), 5000)
-    }
-    
+
     // Set up polling for queue updates every 5 seconds
     const interval = setInterval(fetchQueue, 5000)
     return () => clearInterval(interval)
@@ -133,7 +126,7 @@ export default function DownloadsPage() {
       setLoading(true)
       const response = await fetch('/api/downloads/list')
       const data = await response.json()
-      
+
       if (data.success) {
         setDownloads(data.data)
       } else {
@@ -152,7 +145,7 @@ export default function DownloadsPage() {
       setHistoryLoading(true)
       const response = await fetch('/api/downloads/history')
       const data = await response.json()
-      
+
       if (data.success) {
         setHistoryDownloads(data.data)
       } else {
@@ -170,24 +163,17 @@ export default function DownloadsPage() {
       setQueueLoading(true)
       const response = await fetch('/api/downloads/queue')
       const data = await response.json()
-      
       if (data.success) {
-        const hasActiveDownloads = data.data.queue && data.data.queue.length > 0
-        
-        // Check if downloads just finished
-        if (hadActiveDownloads && !hasActiveDownloads) {
-          // Downloads finished, switch to completed tab and refresh completed downloads
-          setActiveTab('completed')
-          setHadActiveDownloads(false)
-          fetchDownloads() // Refresh completed downloads
-          fetchHistoryDownloads() // Also refresh history downloads
-          setSuccessMessage('Downloads completed! Check your completed downloads below.')
-          setTimeout(() => setSuccessMessage(''), 5000)
-        } else if (hasActiveDownloads) {
-          // Still have active downloads
-          setHadActiveDownloads(true)
+        const hasActiveDownloads = data.data.queue && data.data.queue.length > 0;
+        if (hasActiveDownloads) {
+          hadActiveDownloads.current = true
+        } else {
+          if (hadActiveDownloads.current) {
+            setActiveTab('completed')
+            router.push('/downloads')
+          }
+          hadActiveDownloads.current = false
         }
-        
         setQueueData(data.data)
       } else {
         console.error('Queue fetch error:', data.error)
@@ -203,11 +189,11 @@ export default function DownloadsPage() {
     setSelectedDownload(download)
     setShowModal(true)
     setFilesLoading(true)
-    
+
     try {
       const response = await fetch(`/api/downloads/files?path=${encodeURIComponent(download.path)}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setFiles(data.data)
       } else {
@@ -224,7 +210,7 @@ export default function DownloadsPage() {
   const handleFileClick = (file: FileItem) => {
     // Create a URL for the file
     const fileUrl = `/api/downloads/file?path=${encodeURIComponent(file.path)}`
-    
+
     // For supported videos, audio, images, and books, open in viewer
     if (file.supported && file.type && ['video', 'audio', 'image', 'book'].includes(file.type)) {
       window.open(`/viewer?type=${file.type}&url=${encodeURIComponent(fileUrl)}&filename=${encodeURIComponent(file.name)}`, '_blank')
@@ -237,7 +223,7 @@ export default function DownloadsPage() {
   const handleDownloadFile = (file: FileItem) => {
     // Create a URL for the file
     const fileUrl = `/api/downloads/file?path=${encodeURIComponent(file.path)}`
-    
+
     // Create a temporary link element to trigger download
     const link = document.createElement('a')
     link.href = fileUrl
@@ -261,7 +247,7 @@ export default function DownloadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         // Refresh queue data
         fetchQueue()
@@ -298,7 +284,7 @@ export default function DownloadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         // Refresh history downloads list
         fetchHistoryDownloads()
@@ -372,31 +358,28 @@ export default function DownloadsPage() {
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit mx-auto">
         <button
           onClick={() => setActiveTab('completed')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'completed'
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'completed'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           Completed ({downloads.length})
         </button>
         <button
           onClick={() => setActiveTab('queue')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'queue'
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'queue'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           Active ({queueData?.queue.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'history'
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'history'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           History ({historyDownloads.length})
         </button>
@@ -459,7 +442,7 @@ export default function DownloadsPage() {
                             {item.status}
                           </span>
                         </div>
-                        
+
                         {/* Progress Bar */}
                         <div className="mb-3">
                           <div className="flex justify-between text-sm text-gray-600 mb-1">
@@ -481,7 +464,7 @@ export default function DownloadsPage() {
                           <span>Priority: {item.priority}</span>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2 ml-4">
                         {item.status.toLowerCase() === 'downloading' ? (
                           <button
@@ -595,21 +578,20 @@ export default function DownloadsPage() {
                           <h3 className="text-lg font-medium text-gray-900">
                             {historyDownload.name || historyDownload.filename}
                           </h3>
-                          <span className={`text-sm font-medium ${
-                            historyDownload.is_failed 
-                              ? 'text-red-600' 
+                          <span className={`text-sm font-medium ${historyDownload.is_failed
+                              ? 'text-red-600'
                               : 'text-green-600'
-                          }`}>
+                            }`}>
                             {historyDownload.is_failed ? 'Failed' : 'Completed'}
                           </span>
                         </div>
-                        
+
                         {historyDownload.is_failed && historyDownload.error && (
                           <div className="text-sm text-red-500 mb-2">
                             {historyDownload.error}
                           </div>
                         )}
-                        
+
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                           <span>Size: {formatFileSize(historyDownload.size)}</span>
                           {historyDownload.category && <span>Category: {historyDownload.category}</span>}
@@ -619,7 +601,7 @@ export default function DownloadsPage() {
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2 ml-4">
                         {historyDownload.is_failed && (
                           <button
@@ -671,7 +653,7 @@ export default function DownloadsPage() {
                   </svg>
                 </button>
               </div>
-              
+
               {filesLoading ? (
                 <div className="text-center py-8">
                   <div className="text-gray-500">Loading files...</div>
@@ -681,11 +663,10 @@ export default function DownloadsPage() {
                   {files.map((file, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-between p-3 border rounded-md hover:bg-gray-50 ${
-                        file.supported ? 'bg-green-50 border-green-200' : ''
-                      }`}
+                      className={`flex items-center justify-between p-3 border rounded-md hover:bg-gray-50 ${file.supported ? 'bg-green-50 border-green-200' : ''
+                        }`}
                     >
-                      <div 
+                      <div
                         onClick={() => handleFileClick(file)}
                         className="flex items-center space-x-3 flex-1 cursor-pointer"
                       >
