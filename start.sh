@@ -13,12 +13,6 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if .env file exists
-if [ ! -f .env ]; then
-    echo "❌ .env file not found. Please create one with your configuration."
-    exit 1
-fi
-
 # Create necessary directories
 echo "📁 Creating directories..."
 mkdir -p sabnzbd-config

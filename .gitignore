@@ -191,6 +191,8 @@ storage/
 *.gz
 *.bz2
 
+src/config.json
+
 # Media files (uncomment if you don't want to track media)
 # *.mp4
 # *.avi

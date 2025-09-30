@@ -1,20 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { SearchResult } from '@/lib/schemas'
 
 export default function HomePage() {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [configError, setConfigError] = useState<{message: string, redirectTo?: string} | null>(null)
 
   const performSearch = async (searchQuery: string, searchCategory: string, searchOffset: number) => {
     if (!searchQuery.trim()) return
 
     setLoading(true)
     setError('')
+    setConfigError(null)
     setResults([])
 
     try {
@@ -30,7 +34,15 @@ export default function HomePage() {
       if (data.success) {
         setResults(data.data)
       } else {
-        setError(data.error || 'Search failed')
+        // Check if it's a configuration error
+        if (data.code && (data.code === 'CONFIG_MISSING' || data.code === 'CONFIG_INCOMPLETE')) {
+          setConfigError({
+            message: data.message,
+            redirectTo: data.redirectTo
+          })
+        } else {
+          setError(data.error || 'Search failed')
+        }
       }
     } catch (err) {
       setError('Network error occurred')
@@ -136,7 +148,29 @@ export default function HomePage() {
         </form>
       </div>
 
-      {/* Error Message */}
+      {/* Configuration Error Message */}
+      {configError && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Configuration Required</h3>
+              <div className="mt-2 text-sm text-yellow-700">{configError.message}</div>
+              {configError.redirectTo && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => router.push(configError.redirectTo!)}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                  >
+                    Go to Configuration
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regular Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <div className="flex">

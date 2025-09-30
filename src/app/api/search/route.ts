@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SearchRequestSchema } from '@/lib/schemas'
-import { searchAllIndexers } from '@/lib/indexers/search-engine'
+import { searchAllIndexers } from '@/lib/search-engine'
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,6 +50,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error) {
     console.error('Search error:', error)
+    
+    // Check if it's a configuration error
+    if (error instanceof Error && (error as any).code) {
+      const configError = error as any;
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Configuration Error',
+          message: configError.message,
+          code: configError.code,
+          redirectTo: configError.redirectTo,
+        },
+        { status: 400 }
+      )
+    }
     
     return NextResponse.json(
       {

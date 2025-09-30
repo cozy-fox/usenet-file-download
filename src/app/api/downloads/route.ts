@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import config from '../../../config.json';
 
 export const dynamic = 'force-dynamic';
 
-const SAB_URL = process.env.SABNZBD_URL || 'http://localhost:8080';
-const SAB_KEY = process.env.SABNZBD_API_KEY || process.env.SABNZBD_APIKEY || '';
+const SAB_URL = config.sabnzbd.url;
+const SAB_KEY = config.sabnzbd.apiKey;
 
 function decodeHtmlEntities(input: string) {
   return input
