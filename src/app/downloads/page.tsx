@@ -58,11 +58,34 @@ interface QueueData {
   version: string
 }
 
+interface HistoryDownload {
+  nzo_id: string
+  name: string
+  filename: string
+  status: string
+  size: number
+  category: string
+  priority: string
+  completed: string
+  error: string
+  modified: string
+  nzbname: string
+  avg_age: string
+  loaded: string
+  is_failed: boolean
+  is_completed: boolean
+  completeness: number | null
+  download_time: number
+  postproc_time: number
+}
+
 export default function DownloadsPage() {
   const searchParams = useSearchParams()
   const [downloads, setDownloads] = useState<DownloadItem[]>([])
+  const [historyDownloads, setHistoryDownloads] = useState<HistoryDownload[]>([])
   const [queueData, setQueueData] = useState<QueueData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(true)
   const [queueLoading, setQueueLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -70,17 +93,32 @@ export default function DownloadsPage() {
   const [files, setFiles] = useState<FileItem[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'queue' | 'completed'>('queue')
+  const [activeTab, setActiveTab] = useState<'queue' | 'completed' | 'history'>('completed')
+  const [hadActiveDownloads, setHadActiveDownloads] = useState(false)
 
   useEffect(() => {
     fetchDownloads()
+    fetchHistoryDownloads()
     fetchQueue()
     
-    // Check for success message from URL params
+    // Check for URL parameters
     const message = searchParams.get('message')
+    const tab = searchParams.get('tab')
+    
+    // Set tab based on URL parameter
+    if (tab === 'queue' || tab === 'active') {
+      setActiveTab('queue')
+    } else if (tab === 'completed') {
+      setActiveTab('completed')
+    } else if (tab === 'history') {
+      setActiveTab('history')
+    }
+    
+    // Check for success message from URL params
     if (message === 'download_started') {
       setSuccessMessage('Download started successfully! You can monitor its progress below.')
       setActiveTab('queue') // Switch to queue tab to show the new download
+      setHadActiveDownloads(true) // Set flag that we have active downloads
       // Clear the message after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000)
     }
@@ -109,6 +147,24 @@ export default function DownloadsPage() {
     }
   }
 
+  const fetchHistoryDownloads = async () => {
+    try {
+      setHistoryLoading(true)
+      const response = await fetch('/api/downloads/history')
+      const data = await response.json()
+      
+      if (data.success) {
+        setHistoryDownloads(data.data)
+      } else {
+        console.error('History downloads fetch error:', data.error)
+      }
+    } catch (err) {
+      console.error('History downloads fetch error:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   const fetchQueue = async () => {
     try {
       setQueueLoading(true)
@@ -116,6 +172,22 @@ export default function DownloadsPage() {
       const data = await response.json()
       
       if (data.success) {
+        const hasActiveDownloads = data.data.queue && data.data.queue.length > 0
+        
+        // Check if downloads just finished
+        if (hadActiveDownloads && !hasActiveDownloads) {
+          // Downloads finished, switch to completed tab and refresh completed downloads
+          setActiveTab('completed')
+          setHadActiveDownloads(false)
+          fetchDownloads() // Refresh completed downloads
+          fetchHistoryDownloads() // Also refresh history downloads
+          setSuccessMessage('Downloads completed! Check your completed downloads below.')
+          setTimeout(() => setSuccessMessage(''), 5000)
+        } else if (hasActiveDownloads) {
+          // Still have active downloads
+          setHadActiveDownloads(true)
+        }
+        
         setQueueData(data.data)
       } else {
         console.error('Queue fetch error:', data.error)
@@ -202,6 +274,45 @@ export default function DownloadsPage() {
     }
   }
 
+  const handleRetryDownload = async (historyDownload: HistoryDownload) => {
+    try {
+      // For retry, we need the original NZB URL
+      // Since we don't store it, we'll show a message to re-initiate from search
+      setError('To retry this download, please search for it again and initiate a new download. The original NZB URL is not stored in the history.')
+    } catch (err) {
+      setError('Failed to retry download')
+      console.error('Retry error:', err)
+    }
+  }
+
+  const handleDeleteHistory = async (historyDownload: HistoryDownload) => {
+    try {
+      const response = await fetch('/api/downloads/history', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nzo_id: historyDownload.nzo_id
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        // Refresh history downloads list
+        fetchHistoryDownloads()
+        setSuccessMessage('Download deleted from history successfully.')
+        setTimeout(() => setSuccessMessage(''), 3000)
+      } else {
+        setError(data.error || 'Failed to delete download')
+      }
+    } catch (err) {
+      setError('Failed to delete download')
+      console.error('Delete failed download error:', err)
+    }
+  }
+
   const formatFileSize = (bytes: number) => {
     const units = ['B', 'KB', 'MB', 'GB', 'TB']
     let size = bytes
@@ -260,16 +371,6 @@ export default function DownloadsPage() {
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit mx-auto">
         <button
-          onClick={() => setActiveTab('queue')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'queue'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Active Downloads ({queueData?.queue.length || 0})
-        </button>
-        <button
           onClick={() => setActiveTab('completed')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'completed'
@@ -278,6 +379,26 @@ export default function DownloadsPage() {
           }`}
         >
           Completed ({downloads.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('queue')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'queue'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Active ({queueData?.queue.length || 0})
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'history'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          History ({historyDownloads.length})
         </button>
       </div>
 
@@ -442,6 +563,89 @@ export default function DownloadsPage() {
               <div className="text-gray-500">
                 <p className="text-lg">No completed downloads found</p>
                 <p className="text-sm mt-2">Your completed downloads will appear here</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Downloads History List */}
+      {activeTab === 'history' && (
+        <div>
+          {historyLoading ? (
+            <div className="text-center py-12">
+              <div className="text-gray-500">Loading downloads history...</div>
+            </div>
+          ) : historyDownloads.length > 0 ? (
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900">
+                  Downloads History ({historyDownloads.length})
+                </h2>
+              </div>
+              <div className="divide-y divide-gray-200">
+                {historyDownloads.map((historyDownload, index) => (
+                  <div key={index} className="p-6 hover:bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-lg">
+                            {historyDownload.is_failed ? '❌' : '✅'}
+                          </span>
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {historyDownload.name || historyDownload.filename}
+                          </h3>
+                          <span className={`text-sm font-medium ${
+                            historyDownload.is_failed 
+                              ? 'text-red-600' 
+                              : 'text-green-600'
+                          }`}>
+                            {historyDownload.is_failed ? 'Failed' : 'Completed'}
+                          </span>
+                        </div>
+                        
+                        {historyDownload.is_failed && historyDownload.error && (
+                          <div className="text-sm text-red-500 mb-2">
+                            {historyDownload.error}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>Size: {formatFileSize(historyDownload.size)}</span>
+                          {historyDownload.category && <span>Category: {historyDownload.category}</span>}
+                          <span>Priority: {historyDownload.priority}</span>
+                          <span>
+                            {historyDownload.is_failed ? 'Failed' : 'Completed'}: {new Date(historyDownload.modified).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 ml-4">
+                        {historyDownload.is_failed && (
+                          <button
+                            onClick={() => handleRetryDownload(historyDownload)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                          >
+                            Retry
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteHistory(historyDownload)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-500">
+                <p className="text-lg">No downloads in history</p>
+                <p className="text-sm mt-2">Download history will appear here</p>
               </div>
             </div>
           )}

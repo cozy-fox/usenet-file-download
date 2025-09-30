@@ -73,8 +73,8 @@ export default function HomePage() {
 
       const data = await response.json()
       if (data.success) {
-        // Redirect to downloads page with success message
-        router.push('/downloads?message=download_started')
+        // Redirect to downloads page with success message and active tab
+        router.push('/downloads?message=download_started&tab=active')
       } else {
         setError(`Download failed: ${data.error}`)
       }
