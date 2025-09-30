@@ -73,12 +73,13 @@ export default function HomePage() {
 
       const data = await response.json()
       if (data.success) {
-        alert('Download started successfully!')
+        // Redirect to downloads page with success message
+        router.push('/downloads?message=download_started')
       } else {
-        alert(`Download failed: ${data.error}`)
+        setError(`Download failed: ${data.error}`)
       }
     } catch (err) {
-      alert('Failed to start download')
+      setError('Failed to start download')
       console.error('Download error:', err)
     }
   }
