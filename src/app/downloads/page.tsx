@@ -65,12 +65,14 @@ interface HistoryDownload {
   status: string
   size: number
   category: string
-  completed: string
+  completed: number
   error: string
-  modified: string
+  modified: number
+  posted_date: number
+  completed_date: number
   nzbname: string
-  avg_age: string
-  loaded: string
+  avg_age: number
+  loaded: boolean
   is_failed: boolean
   is_completed: boolean
   completeness: number | null
@@ -593,8 +595,13 @@ export default function DownloadsPage() {
                           <span>Size: {formatFileSize(historyDownload.size)}</span>
                           {historyDownload.category && <span>Category: {historyDownload.category}</span>}
                           <span>
-                            {historyDownload.is_failed ? 'Failed' : 'Completed'}: {new Date(historyDownload.modified).toLocaleDateString()}
+                            Started: {new Date(historyDownload.posted_date * 1000).toLocaleString()}
                           </span>
+                          {historyDownload.completed_date && (
+                            <span>
+                              {historyDownload.is_failed ? 'Failed' : 'Completed'}: {new Date(historyDownload.completed_date * 1000).toLocaleString()}
+                            </span>
+                          )}
                         </div>
                       </div>
 

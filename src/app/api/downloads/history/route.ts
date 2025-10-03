@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     const data = await response.json();
-
+    console.log('history',data.history.slots)
     if (!data.history) {
       return NextResponse.json(
         { error: 'Invalid response from SABnzbd' },
@@ -48,13 +48,15 @@ export async function GET() {
         name: item.name,
         filename: item.filename,
         status: item.status,
-        size: item.bytes * 1024 * 1024, // Convert MB to bytes
-        category: item.cat,
+        size: item.bytes, // Keep as bytes (already in bytes from SABnzbd)
+        category: item.category,
         priority: item.priority,
         completed: item.completed,
         error: item.fail_message || '',
-        modified: item.completed_time || item.failed_time,
-        nzbname: item.nzbname,
+        modified: item.completed || item.time_added, // Use completed timestamp or time_added
+        posted_date: item.time_added, // When the download was added/started
+        completed_date: item.completed, // When the download was completed
+        nzbname: item.nzb_name,
         avg_age: item.avg_age,
         loaded: item.loaded,
         is_failed: isFailed,
