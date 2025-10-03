@@ -16,8 +16,6 @@ fi
 # Create necessary directories
 echo "📁 Creating directories..."
 mkdir -p sabnzbd-config
-mkdir -p downloads
-mkdir -p nzb-files
 
 # Start SABnzbd with Docker Compose
 echo "🐳 Starting SABnzbd..."
