@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
         break
     }
     
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(fileBuffer as BodyInit, {
       headers: {
         'Content-Type': contentType,
         'Content-Length': stats.size.toString(),

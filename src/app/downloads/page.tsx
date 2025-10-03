@@ -27,7 +27,6 @@ interface QueueItem {
   percentage: number
   timeleft: string
   eta: string
-  priority: string
   category: string
   nzbname: string
   postproc_time: string
@@ -66,7 +65,6 @@ interface HistoryDownload {
   status: string
   size: number
   category: string
-  priority: string
   completed: string
   error: string
   modified: string
@@ -461,7 +459,6 @@ export default function DownloadsPage() {
                           <span>Time left: {item.timeleft}</span>
                           <span>ETA: {item.eta}</span>
                           {item.category && <span>Category: {item.category}</span>}
-                          <span>Priority: {item.priority}</span>
                         </div>
                       </div>
 
@@ -595,7 +592,6 @@ export default function DownloadsPage() {
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                           <span>Size: {formatFileSize(historyDownload.size)}</span>
                           {historyDownload.category && <span>Category: {historyDownload.category}</span>}
-                          <span>Priority: {historyDownload.priority}</span>
                           <span>
                             {historyDownload.is_failed ? 'Failed' : 'Completed'}: {new Date(historyDownload.modified).toLocaleDateString()}
                           </span>
