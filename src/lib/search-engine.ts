@@ -1,4 +1,6 @@
 import { SearchResult } from './schemas'
+import fs from 'fs'
+import path from 'path'
 
 // Import config with error handling
 let config: any;
@@ -10,12 +12,13 @@ try {
 }
 
 // Newznab API search (for NZBGeek, NZBFinder)
-async function searchNewznab(query: string, category?: string, limit: number = 50): Promise<SearchResult[]> {
+async function searchNewznab(query: string, category?: string, limit: number = 50, offset: number = 0): Promise<{ results: SearchResult[], total: number }> {
   const searchParams = new URLSearchParams({
     apikey: config.indexer.apiKey,
     t: 'search',
     q: query,
     limit: limit.toString(),
+    offset: offset.toString(),
   })
 
   if (category) {
@@ -40,14 +43,35 @@ async function searchNewznab(query: string, category?: string, limit: number = 5
     return parseNewznabXML(xml, config.indexer.name)
   } catch (error) {
     console.error(`Newznab search error for ${config.indexer.name}:`, error)
-    return []
+    return { results: [], total: 0 }
   }
 }
 
+// Decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  const entities: { [key: string]: string } = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+    '&nbsp;': ' ',
+  }
+  
+  return text.replace(/&[a-zA-Z0-9#]+;/g, (entity) => {
+    return entities[entity] || entity
+  })
+}
+
 // Parse Newznab XML response
-function parseNewznabXML(xml: string, indexerName: string): SearchResult[] {
+function parseNewznabXML(xml: string, indexerName: string): { results: SearchResult[], total: number } {
   // Simple XML parsing for RSS format
   const results: SearchResult[] = []
+  
+  // Extract total count from newznab:response
+  const responseMatch = xml.match(/<newznab:response[^>]*total="([^"]*)"[^>]*>/)
+  const total = responseMatch ? parseInt(responseMatch[1]) : 0
   
   // Extract items using regex (simple approach)
   const itemRegex = /<item>([\s\S]*?)<\/item>/g
@@ -73,9 +97,9 @@ function parseNewznabXML(xml: string, indexerName: string): SearchResult[] {
       
       results.push({
         id: guid,
-        title: title.trim(),
+        title: decodeHtmlEntities(title.trim()),
         size,
-        category,
+        category: decodeHtmlEntities(category),
         posted: pubDate,
         nzbId: guid,
         indexer: indexerName,
@@ -83,11 +107,11 @@ function parseNewznabXML(xml: string, indexerName: string): SearchResult[] {
     }
   }
   
-  return results
+  return { results, total }
 }
 
 // Main search function - queries the single indexer
-export async function searchAllIndexers(query: string, category?: string, limit: number = 50): Promise<SearchResult[]> {
+export async function searchAllIndexers(query: string, category?: string, limit: number = 50, offset: number = 0): Promise<{ results: SearchResult[], total: number }> {
   // Check if config is available
   if (!config) {
     const error = new Error('Configuration not found. Please configure your settings first.');
@@ -106,25 +130,22 @@ export async function searchAllIndexers(query: string, category?: string, limit:
 
   if (!config.indexer.enabled) {
     console.log(`❌ Indexer ${config.indexer.name} is disabled`)
-    return []
+    return { results: [], total: 0 }
   }
   
-  console.log(`🔍 Searching ${config.indexer.name} for: "${query}"`)
+  console.log(`🔍 Searching ${config.indexer.name} for: "${query}" (offset: ${offset}, limit: ${limit})`)
   
   try {
-    const results = await searchNewznab(query, category, limit)
-    console.log(`✅ ${config.indexer.name}: Found ${results.length} results`)
+    const searchResult = await searchNewznab(query, category, limit, offset)
     
     // Sort by posted date (newest first)
-    const sortedResults = results
+    const sortedResults = searchResult.results
       .sort((a, b) => new Date(b.posted).getTime() - new Date(a.posted).getTime())
     
-    console.log(`🎯 Total results: ${sortedResults.length}`)
-    
-    return sortedResults
+    return { results: sortedResults, total: searchResult.total }
   } catch (error) {
     console.error(`❌ ${config.indexer.name}: Search failed:`, error)
-    return []
+    return { results: [], total: 0 }
   }
 }
 

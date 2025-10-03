@@ -26,10 +26,11 @@ export async function GET(request: NextRequest) {
 
     // Search all indexers simultaneously
     const startTime = Date.now()
-    const results = await searchAllIndexers(
+    const searchResult = await searchAllIndexers(
       searchRequest.query,
       searchRequest.category,
-      searchRequest.limit
+      searchRequest.limit,
+      searchRequest.offset
     )
     const searchTime = (Date.now() - startTime) / 1000
 
@@ -37,13 +38,15 @@ export async function GET(request: NextRequest) {
 
     const response = {
       success: true,
-      data: results,
+      data: searchResult.results,
       meta: {
         query: searchRequest.query,
         category: searchRequest.category,
-        totalResults: results.length,
+        totalResults: searchResult.total,
+        currentPageResults: searchResult.results.length,
+        offset: searchRequest.offset,
+        limit: searchRequest.limit,
         searchTime,
-        indexers: ['NZBGeek', 'NZBIndex', 'NZBFinder'], // From config
       },
     }
 

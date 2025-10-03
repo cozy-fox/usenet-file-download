@@ -29,7 +29,6 @@ export async function GET() {
     }
 
     const data = await response.json();
-    console.log('history',data.history.slots)
     if (!data.history) {
       return NextResponse.json(
         { error: 'Invalid response from SABnzbd' },

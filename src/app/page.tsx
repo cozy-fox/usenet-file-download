@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SearchResult } from '@/lib/schemas'
+import Pagination from '@/components/ui/pagination'
 
 export default function HomePage() {
   const router = useRouter()
@@ -12,8 +13,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [configError, setConfigError] = useState<{message: string, redirectTo?: string} | null>(null)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalResults, setTotalResults] = useState(0)
 
-  const performSearch = async (searchQuery: string, searchCategory: string, searchOffset: number) => {
+  const performSearch = async (searchQuery: string, searchCategory: string, page: number = 1, size: number = pageSize) => {
     if (!searchQuery.trim()) return
 
     setLoading(true)
@@ -21,11 +27,14 @@ export default function HomePage() {
     setConfigError(null)
     setResults([])
 
+    const offset = (page - 1) * size
+
     try {
       const params = new URLSearchParams({
         q: searchQuery,
         ...(searchCategory && { cat: searchCategory }),
-        offset: searchOffset.toString(),
+        offset: offset.toString(),
+        limit: size.toString(),
       })
 
       const response = await fetch(`/api/search?${params}`)
@@ -33,6 +42,9 @@ export default function HomePage() {
 
       if (data.success) {
         setResults(data.data)
+        setTotalResults(data.meta.totalResults)
+        setCurrentPage(page)
+        setPageSize(size)
       } else {
         // Check if it's a configuration error
         if (data.code && (data.code === 'CONFIG_MISSING' || data.code === 'CONFIG_INCOMPLETE')) {
@@ -54,7 +66,17 @@ export default function HomePage() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    await performSearch(query, category, 0)
+    setCurrentPage(1) // Reset to first page on new search
+    await performSearch(query, category, 1, pageSize)
+  }
+
+  const handlePageChange = (page: number) => {
+    performSearch(query, category, page, pageSize)
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setCurrentPage(1) // Reset to first page when changing page size
+    performSearch(query, category, 1, size)
   }
 
   const handleDownload = async (result: SearchResult) => {
@@ -187,18 +209,28 @@ export default function HomePage() {
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">
-              Search Results ({results.length})
+              Search Results ({totalResults.toLocaleString()} total)
             </h2>
           </div>
+          
+          {/* Pagination */}
+          <Pagination
+            totalResults={totalResults}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
+          
           <div className="divide-y divide-gray-200">
             {results.map((result, index) => (
               <div key={index} className="p-6 hover:bg-gray-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2 truncate" title={result.title}>
                       {result.title}
                     </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                       <span>Size: {formatFileSize(result.size)}</span>
                       {result.category && (
                         <span>Category: {result.category}</span>
@@ -207,10 +239,10 @@ export default function HomePage() {
                       <span>Posted: {new Date(result.posted).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <div className="flex space-x-2 ml-4">
+                  <div className="flex-shrink-0">
                     <button
                       onClick={() => handleDownload(result)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 whitespace-nowrap"
                     >
                       Download
                     </button>
