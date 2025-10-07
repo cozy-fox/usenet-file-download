@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  nextjs:
+    build: .
+    container_name: nextjs-app
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./sabnzbd-config/Downloads:/app/sabnzbd-config/Downloads:ro
+    networks:
+      - usenet-network
+    depends_on:
+      - sabnzbd
+
+  # Nginx with HTTPS (standard port 443)
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-https
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - usenet-network
+    depends_on:
+      - nextjs
+
+  # SABnzbd (unchanged)
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+      - SABNZBD_BASE=/config
+    volumes:
+      - ./sabnzbd-config:/config
+      - ./downloads:/downloads
+      - ./nzb-files:/nzb-files
+    ports:
+      - "8080:8080"
+    networks:
+      - usenet-network
+
+networks:
+  usenet-network:
+    driver: bridge

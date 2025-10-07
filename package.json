@@ -8,10 +8,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "start:dev": "./start.sh",
+    "start:prod": "./start.sh https",
     "start:full": "./start.sh",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f sabnzbd",
+    "docker:https": "docker-compose -f docker-compose.https.yml up -d",
+    "docker:https:down": "docker-compose -f docker-compose.https.yml down",
+    "docker:https:logs": "docker-compose -f docker-compose.https.yml logs -f",
+    "ssl:generate": "./generate-ssl.sh",
     "setup": "npm install && docker-compose up -d sabnzbd"
   },
   "dependencies": {
