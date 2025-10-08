@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, stat } from 'fs/promises'
+import { stat, createReadStream } from 'fs'
 import { join } from 'path'
 
 export const dynamic = 'force-dynamic'
@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
       )
     }
     
-    // Read the file
-    const fileBuffer = await readFile(filePath)
+    // Create readable stream for large files
+    const fileStream = createReadStream(filePath)
     
     // Get file extension for content type
     const ext = filePath.toLowerCase().substring(filePath.lastIndexOf('.'))
@@ -86,12 +86,14 @@ export async function GET(req: NextRequest) {
         break
     }
     
-    return new NextResponse(fileBuffer as BodyInit, {
+    // Return streaming response for large files
+    return new NextResponse(fileStream as any, {
       headers: {
         'Content-Type': contentType,
         'Content-Length': stats.size.toString(),
         'Cache-Control': 'public, max-age=3600',
-        'Content-Disposition': 'inline', // This tells browser to display instead of download
+        'Content-Disposition': 'inline',
+        'Accept-Ranges': 'bytes', // Enable range requests for video streaming
       },
     })
     
