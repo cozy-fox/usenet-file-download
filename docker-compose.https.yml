@@ -39,8 +39,6 @@ services:
       - SABNZBD_BASE=/config
     volumes:
       - ./sabnzbd-config:/config
-      - ./downloads:/downloads
-      - ./nzb-files:/nzb-files
     ports:
       - "8080:8080"
     networks:
