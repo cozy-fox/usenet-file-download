@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stat, createReadStream } from 'fs'
+import { stat } from 'fs/promises'
+import { createReadStream } from 'fs'
 import { join } from 'path'
 
 export const dynamic = 'force-dynamic'
